@@ -1,12 +1,6 @@
 "use client";
 
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
   Card,
   CardContent,
   CardHeader,
@@ -26,7 +20,7 @@ import { InvoiceLinesTable, InvoiceLinesTableHandle } from "./components/Invoice
 
 export default function Home() {
   const [incoterm, setIncoterm] = useState<Incoterm>("EXW");
-  const { invoiceTotal, currency, tAndI, factor, totalCustomsValue, setTotalCustomsValue, setFactor } = useInvoice();
+  const { invoiceTotal, currency, tAndI, factor, totalCustomsValue, setTotalCustomsValue, setFactor, invoiceLines, setInvoiceLines } = useInvoice();
   const invoiceTableRef = useRef<InvoiceTableHandle>(null);
   const valuationTableRef = useRef<ValuationTableHandle>(null);
   const invoiceLinesTableRef = useRef<InvoiceLinesTableHandle>(null);
@@ -84,104 +78,106 @@ export default function Home() {
 
 
   const handleCalculateLineDistributions = () => {
-    // TODO: Implement line distribution calculation
+    if (invoiceTotal === 0) {
+      // alert("Please ensure the invoice total is set before calculating line distributions");
+      return;
+    }
+
+    if (invoiceLines.length === 0) {
+      // alert("No invoice lines available for calculation");
+      return;
+    }
+
+    // Calculate ratio for each invoice line (price / invoiceTotal)
+    const updatedLines = invoiceLines.map(line => ({
+      ...line,
+      ratio: line.price / invoiceTotal
+    }));
+
+    // Update the context with the calculated ratios
+    setInvoiceLines(updatedLines);
+    
+    console.log("Line distributions calculated successfully");
+    console.log("Updated invoice lines with ratios:", updatedLines);
   };
 
   return (
     <div className="font-sans flex flex-col min-h-screen p-8 sm:p-20 gap-6">
-      {/* Tabs */}
-      <Tabs defaultValue="headers" className="flex flex-col flex-1 gap-6">
-        <TabsList>
-          <TabsTrigger value="headers">Invoice Headers</TabsTrigger>
-          <TabsTrigger value="lines">Invoice Lines</TabsTrigger>
-        </TabsList>
+      {/* Invoice Headers Section */}
+      <div className="flex-1 min-h-[200px]">
+        <InvoiceTable ref={invoiceTableRef} incoterm={incoterm} onIncotermChange={setIncoterm} />
+      </div>
 
-        {/* Invoice Headers Tab */}
-        <TabsContent value="headers" className="flex flex-col gap-6 flex-1 overflow-auto">
-          {/* Upper grid placeholder (using InvoiceTable for now) */}
-          <div className="flex-1 min-h-[200px]">
-            <InvoiceTable ref={invoiceTableRef} incoterm={incoterm} onIncotermChange={setIncoterm} />
-          </div>
+      {/* Valuation Elements Card */}
+      <Card className="w-full">
+        <CardHeader className="border-b">
+          <CardTitle>Valuation Elements</CardTitle>
+          <CardAction>
+            <Button size="sm" onClick={handleCalculate}>Calculate</Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent>
+          <ValuationTable ref={valuationTableRef} incoterm={incoterm} />
+        </CardContent>
+      </Card>
 
-          {/* Valuation Elements Card */}
-          <Card className="w-full">
-            <CardHeader className="border-b">
-              <CardTitle>Valuation Elements</CardTitle>
-              <CardAction>
-                <Button size="sm" onClick={handleCalculate}>Calculate</Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              <ValuationTable ref={valuationTableRef} incoterm={incoterm} />
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* Invoice Lines Section */}
+      <Card className="w-full overflow-hidden">
+        <CardHeader className="border-b">
+          <CardTitle>Invoice Lines</CardTitle>
+          <CardAction className="flex gap-2">
+            <Button size="sm" onClick={handleAddLine}>Add Line</Button>
+            <Button size="sm" onClick={handleCalculateLineDistributions}>Calculate Line Distributions</Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="h-64 overflow-auto">
+          <InvoiceLinesTable ref={invoiceLinesTableRef} />
+        </CardContent>
+      </Card>
 
-        {/* Invoice Lines Tab */}
-        <TabsContent value="lines" className="flex flex-col gap-6 flex-1 overflow-auto">
-          {/* Invoice Lines grid */}
-          <Card className="w-full overflow-hidden">
-            <CardHeader className="border-b">
-              <CardTitle>Invoice Lines</CardTitle>
-              <CardAction className="flex gap-2">
-                <Button size="sm" onClick={handleAddLine}>Add Line</Button>
-                <Button size="sm" onClick={handleCalculateLineDistributions}>Calculate Line Distributions</Button>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="h-full overflow-auto">
-              <InvoiceLinesTable ref={invoiceLinesTableRef} />
-            </CardContent>
-          </Card>
+      {/* Bottom Section - Line Calculations and Formula */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Line Calculations Card */}
+        <Card className="min-h-[200px]">
+          <CardHeader className="border-b">
+            <CardTitle>Line Calculations</CardTitle>
+          </CardHeader>
+          <CardContent className="h-full overflow-auto">
+            <LineCalculations />
+          </CardContent>
+        </Card>
 
-          {/* Lower split view */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Line Calculations Card */}
-            <Card className="min-h-[200px]">
-              <CardHeader className="border-b">
-                <CardTitle>Line Calculations</CardTitle>
-              </CardHeader>
-              <CardContent className="h-full overflow-auto">
-                <LineCalculations />
-              </CardContent>
-            </Card>
-
-            {/* Calculation Formula Card */}
-            <Card className="min-h-[200px]">
-              <CardHeader className="border-b">
-                <CardTitle>Calculation Formula</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Invoice Total:</span>
-                      <span className="font-medium">{invoiceTotal.toLocaleString()} {currency}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Currency:</span>
-                      <span className="font-medium">{currency}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Customs Value:</span>
-                      <span className="font-medium">{totalCustomsValue.toLocaleString()} AUD</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">T & I:</span>
-                      <span className="font-medium">{tAndI.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Factor:</span>
-                      <span className="font-medium">{factor.toFixed(8)}</span>
-                    </div>
-                  </div>
+        {/* Calculation Formula Card */}
+        <Card className="min-h-[200px]">
+          <CardHeader className="border-b">
+            <CardTitle>Calculation Formula</CardTitle>
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Invoice Total:</span>
+                  <span className="font-medium">{invoiceTotal.toLocaleString()} {currency}</span>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Customs Value:</span>
+                  <span className="font-medium">{totalCustomsValue.toLocaleString()} AUD</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">T & I:</span>
+                  <span className="font-medium">{tAndI.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Factor:</span>
+                  <span className="font-medium">{factor.toFixed(8)}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

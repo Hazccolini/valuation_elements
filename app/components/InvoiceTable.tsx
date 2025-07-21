@@ -12,20 +12,11 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { useInvoice } from '../contexts/InvoiceContext';
+import { useInvoice, InvoiceRow } from '../contexts/InvoiceContext';
 import { UI_CONFIG, type Incoterm } from '@/lib/incotermRules';
 
-export interface InvoiceRow {
-  invoiceNo: string;
-  supplier: string;
-  invoiceTotal: number;
-  currency: string;
-  exchangeRate: number;
-  fobAmt: number;
-  fobCurrency: string;
-  cifAmt: number;
-  cifCurrency: string;
-}
+// Export the type from context for backward compatibility
+export type { InvoiceRow } from '../contexts/InvoiceContext';
 
 const INITIAL_ROWS: InvoiceRow[] = [
   {
@@ -80,15 +71,24 @@ export interface InvoiceTableHandle {
 export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
   function InvoiceTable({ incoterm, onIncotermChange }: InvoiceTableProps, ref) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [rows, setRows] = useState<InvoiceRow[]>(() => INITIAL_ROWS);
 
   // Access global invoice context setters
-  const { setInvoiceTotal, setCurrency } = useInvoice();
+  const { setInvoiceTotal, setCurrency, invoiceHeaders, setInvoiceHeaders } = useInvoice();
+
+  // Initialize context with initial rows on first load
+  useEffect(() => {
+    if (invoiceHeaders.length === 0) {
+      setInvoiceHeaders(INITIAL_ROWS);
+    }
+  }, [invoiceHeaders.length, setInvoiceHeaders]);
+
+  // Use context data if available, otherwise use initial data for rendering
+  const displayRows = invoiceHeaders.length > 0 ? invoiceHeaders : INITIAL_ROWS;
 
   // When the Incoterm changes (selected from the dropdown in this table or from parent),
   // clear out monetary values so the user starts with a clean slate for the new term.
   useEffect(() => {
-    setRows(prev =>
+    setInvoiceHeaders(prev =>
       prev.map(r => ({
         ...r,
         invoiceTotal: 0,
@@ -101,7 +101,7 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
       })),
     );
     setSelected(null);
-  }, [incoterm]);
+  }, [incoterm, setInvoiceHeaders]);
 
   const numericFields: (keyof InvoiceRow)[] = [
     'invoiceTotal',
@@ -122,8 +122,10 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
       newVal = Number.isNaN(parsed) ? 0 : parsed;
     }
 
-    setRows(prev => {
-      const clone = [...prev];
+    setInvoiceHeaders(prev => {
+      // Use current display data if context is empty
+      const currentData = prev.length > 0 ? prev : INITIAL_ROWS;
+      const clone = [...currentData];
       const current = clone[rowIdx];
       // Build updated row, and if currency changed, update exchangeRate automatically
       let updatedRow: InvoiceRow = { ...current, [field]: newVal } as InvoiceRow;
@@ -150,8 +152,8 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
 
   useImperativeHandle(ref, () => ({
     getGoodsValueAUD() {
-      if (rows.length === 0) return null;
-      const first = rows[0];
+      if (displayRows.length === 0) return null;
+      const first = displayRows[0];
       // Convert the invoice total to AUD using the current exchange rate for the row’s currency.
       // If no exchange rate is stored (e.g. currency not selected yet) default to 1.
       const rate = first.exchangeRate || 1;
@@ -160,9 +162,10 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
       return Math.round((audValue + Number.EPSILON) * 100) / 100;
     },
     updateFobCifValues(fob: number, cif: number) {
-      setRows(prev => {
-        if (prev.length === 0) return prev;
-        const clone = [...prev];
+      setInvoiceHeaders(prev => {
+        const currentData = prev.length > 0 ? prev : INITIAL_ROWS;
+        if (currentData.length === 0) return prev;
+        const clone = [...currentData];
         const base = clone[0];
 
         const currency = base.currency || 'AUD';
@@ -223,7 +226,7 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row, rowIdx) => {
+            {displayRows.map((row, rowIdx) => {
               const isSel = row.invoiceNo === selected;
               return (
                 <TableRow

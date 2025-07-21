@@ -18,7 +18,7 @@ interface FieldRow {
 
 const CURRENT_INVOICE_FIELDS: FieldRow[] = [
   { key: "total", label: "Total Amount", value: "" },
-  { key: "currency", label: "Currency", value: "" },
+  // { key: "currency", label: "Currency", value: "" },
   { key: "lines", label: "Lines Amount", value: "" },
   { key: "balance", label: "Balance", value: "" },
 ];

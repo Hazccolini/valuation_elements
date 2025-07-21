@@ -9,35 +9,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState, forwardRef, useImperativeHandle } from "react";
+import { useState, forwardRef, useImperativeHandle, useEffect } from "react";
+import { useInvoice, InvoiceLineRow } from "../contexts/InvoiceContext";
 import { cn } from "@/lib/utils";
 
-export interface InvoiceLineRow {
-  mergedLineNo: string;
-  lineNo: string;
-  invoiceNo: string;
-  productCode: string;
-  goodsDescription: string;
-  lookUpCodeClass: string;
-  tariff: string;
-  invoiceQty: number;
-  unitQuantity: string; // UQ
-  customsQty: number;
-  customsUnit: string; // Cust.
-  price: number;
-  lineCurrency: string;
-  origin: string; // ORG
-  prefOrigin: string;
-  prefSchemeType: string;
-  prefRuleType: string;
-  treatmentCode: string;
-  instructionType: string;
-  instructionNo: string;
-  valuationBasis: string;
-  tariffRate: string;
-  number: string; // "No." column
-  bond: boolean;
-}
+// Export the type from context for backward compatibility
+export type { InvoiceLineRow } from "../contexts/InvoiceContext";
 
 const INITIAL_ROWS: InvoiceLineRow[] = [
   {
@@ -50,9 +27,9 @@ const INITIAL_ROWS: InvoiceLineRow[] = [
     tariff: "2103.90.00 17",
     invoiceQty: 716,
     unitQuantity: "NO",
-    customsQty: 7160.0,
+    customsQty: 0,
     customsUnit: "KG",
-    price: 101672.0,
+    price: 0,
     lineCurrency: "MYR",
     origin: "MY",
     prefOrigin: "",
@@ -76,10 +53,10 @@ const COLUMNS = [
   // { key: "goodsDescription", label: "Goods Description" },
   // { key: "lookUpCodeClass", label: "Look Up Code Class." },
   { key: "tariff", label: "Tariff" },
-  { key: "invoiceQty", label: "Inv. Qty" },
-  { key: "unitQuantity", label: "UQ" },
-  { key: "customsQty", label: "Customs Qty" },
-  { key: "customsUnit", label: "Cust." },
+  // { key: "invoiceQty", label: "Inv. Qty" },
+  // { key: "unitQuantity", label: "UQ" },
+  // { key: "customsQty", label: "Customs Qty" },
+  // { key: "customsUnit", label: "Cust." },
   { key: "price", label: "Price" },
   { key: "lineCurrency", label: "Line Currency" },
   { key: "origin", label: "ORG" },
@@ -107,11 +84,22 @@ export interface InvoiceLinesTableHandle {
 
 export const InvoiceLinesTable = forwardRef<InvoiceLinesTableHandle>(
   function InvoiceLinesTable(props, ref) {
+  const { invoiceLines, setInvoiceLines } = useInvoice();
   const [rows, setRows] = useState<InvoiceLineRow[]>(() => INITIAL_ROWS);
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Initialize context with initial rows on first load
+  useEffect(() => {
+    if (invoiceLines.length === 0) {
+      setInvoiceLines(INITIAL_ROWS);
+    }
+  }, [invoiceLines.length, setInvoiceLines]);
+
+  // Use context data if available, otherwise fall back to local state
+  const currentRows = invoiceLines.length > 0 ? invoiceLines : rows;
+
   const addLine = () => {
-    const newLineNo = (rows.length + 1).toString();
+    const newLineNo = (currentRows.length + 1).toString();
     const newRow: InvoiceLineRow = {
       mergedLineNo: `${newLineNo}/NEW/X`,
       lineNo: newLineNo,
@@ -138,7 +126,7 @@ export const InvoiceLinesTable = forwardRef<InvoiceLinesTableHandle>(
       number: "",
       bond: false,
     };
-    setRows(prev => [...prev, newRow]);
+    setInvoiceLines(prev => [...prev, newRow]);
   };
 
   useImperativeHandle(ref, () => ({
@@ -150,7 +138,7 @@ export const InvoiceLinesTable = forwardRef<InvoiceLinesTableHandle>(
     field: keyof InvoiceLineRow,
     value: string | boolean,
   ) => {
-    setRows((prev) => {
+    setInvoiceLines((prev) => {
       const clone = [...prev];
       const current = clone[rowIdx];
       let newVal: any = value;
@@ -179,7 +167,7 @@ export const InvoiceLinesTable = forwardRef<InvoiceLinesTableHandle>(
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((row, rowIdx) => (
+          {currentRows.map((row, rowIdx) => (
             <TableRow
               key={rowIdx}
               onClick={() => setSelected(row.lineNo)}
