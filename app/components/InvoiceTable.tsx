@@ -11,7 +11,8 @@ import {
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { useState, forwardRef, useImperativeHandle } from 'react';
+import { useState, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { useInvoice } from '../contexts/InvoiceContext';
 import { UI_CONFIG, type Incoterm } from '@/lib/incotermRules';
 
 export interface InvoiceRow {
@@ -81,6 +82,27 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
   const [selected, setSelected] = useState<string | null>(null);
   const [rows, setRows] = useState<InvoiceRow[]>(() => INITIAL_ROWS);
 
+  // Access global invoice context setters
+  const { setInvoiceTotal, setCurrency } = useInvoice();
+
+  // When the Incoterm changes (selected from the dropdown in this table or from parent),
+  // clear out monetary values so the user starts with a clean slate for the new term.
+  useEffect(() => {
+    setRows(prev =>
+      prev.map(r => ({
+        ...r,
+        invoiceTotal: 0,
+        currency: '',
+        exchangeRate: 0,
+        fobAmt: 0,
+        fobCurrency: '',
+        cifAmt: 0,
+        cifCurrency: '',
+      })),
+    );
+    setSelected(null);
+  }, [incoterm]);
+
   const numericFields: (keyof InvoiceRow)[] = [
     'invoiceTotal',
     'exchangeRate',
@@ -93,15 +115,16 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
     field: keyof InvoiceRow,
     value: string,
   ) => {
+    let newVal: any = value;
+    const isNumeric = numericFields.includes(field);
+    if (isNumeric) {
+      const parsed = parseFloat(value);
+      newVal = Number.isNaN(parsed) ? 0 : parsed;
+    }
+
     setRows(prev => {
       const clone = [...prev];
       const current = clone[rowIdx];
-      let newVal: any = value;
-      if (numericFields.includes(field)) {
-        const parsed = parseFloat(value);
-        newVal = Number.isNaN(parsed) ? 0 : parsed;
-      }
-
       // Build updated row, and if currency changed, update exchangeRate automatically
       let updatedRow: InvoiceRow = { ...current, [field]: newVal } as InvoiceRow;
       if (field === 'currency') {
@@ -114,6 +137,15 @@ export const InvoiceTable = forwardRef<InvoiceTableHandle, InvoiceTableProps>(
       clone[rowIdx] = updatedRow;
       return clone;
     });
+
+    // Sync global context **after** updating local state to avoid setState during render
+    if (field === 'invoiceTotal') {
+      const numVal = typeof newVal === 'number' ? newVal : parseFloat(String(newVal));
+      setInvoiceTotal(Number.isNaN(numVal) ? 0 : numVal);
+    }
+    if (field === 'currency') {
+      setCurrency(String(newVal));
+    }
   };
 
   useImperativeHandle(ref, () => ({

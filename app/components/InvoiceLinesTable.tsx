@@ -9,7 +9,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
+import { cn } from "@/lib/utils";
 
 export interface InvoiceLineRow {
   mergedLineNo: string;
@@ -68,29 +69,29 @@ const INITIAL_ROWS: InvoiceLineRow[] = [
 ];
 
 const COLUMNS = [
-  { key: "mergedLineNo", label: "Merged Ln #" },
+  // { key: "mergedLineNo", label: "Merged Ln #" },
   { key: "lineNo", label: "LNO" },
   { key: "invoiceNo", label: "Inv. No." },
-  { key: "productCode", label: "Product Code" },
-  { key: "goodsDescription", label: "Goods Description" },
-  { key: "lookUpCodeClass", label: "Look Up Code Class." },
+  // { key: "productCode", label: "Product Code" },
+  // { key: "goodsDescription", label: "Goods Description" },
+  // { key: "lookUpCodeClass", label: "Look Up Code Class." },
   { key: "tariff", label: "Tariff" },
   { key: "invoiceQty", label: "Inv. Qty" },
   { key: "unitQuantity", label: "UQ" },
   { key: "customsQty", label: "Customs Qty" },
   { key: "customsUnit", label: "Cust." },
   { key: "price", label: "Price" },
-  { key: "lineCurrency", label: "Line Curren" },
+  { key: "lineCurrency", label: "Line Currency" },
   { key: "origin", label: "ORG" },
-  { key: "prefOrigin", label: "Pref. Origin" },
-  { key: "prefSchemeType", label: "Pref. Scheme T" },
-  { key: "prefRuleType", label: "Pref. Rule Type" },
-  { key: "treatmentCode", label: "Treatment Code" },
-  { key: "instructionType", label: "Inst. Type" },
-  { key: "instructionNo", label: "Inst. No." },
-  { key: "valuationBasis", label: "Valuation Basis" },
+  // { key: "prefOrigin", label: "Pref. Origin" },
+  // { key: "prefSchemeType", label: "Pref. Scheme T" },
+  // { key: "prefRuleType", label: "Pref. Rule Type" },
+  // { key: "treatmentCode", label: "Treatment Code" },
+  // { key: "instructionType", label: "Inst. Type" },
+  // { key: "instructionNo", label: "Inst. No." },
+  // { key: "valuationBasis", label: "Valuation Basis" },
   { key: "tariffRate", label: "Tariff Rate" },
-  { key: "number", label: "No." },
+  // { key: "number", label: "No." },
   { key: "bond", label: "Bond?" },
 ] as const;
 
@@ -100,8 +101,49 @@ const numericFields: (keyof InvoiceLineRow)[] = [
   "price",
 ];
 
-export function InvoiceLinesTable() {
+export interface InvoiceLinesTableHandle {
+  addLine: () => void;
+}
+
+export const InvoiceLinesTable = forwardRef<InvoiceLinesTableHandle>(
+  function InvoiceLinesTable(props, ref) {
   const [rows, setRows] = useState<InvoiceLineRow[]>(() => INITIAL_ROWS);
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const addLine = () => {
+    const newLineNo = (rows.length + 1).toString();
+    const newRow: InvoiceLineRow = {
+      mergedLineNo: `${newLineNo}/NEW/X`,
+      lineNo: newLineNo,
+      invoiceNo: "I-28034125", // Default to same invoice
+      productCode: "",
+      goodsDescription: "",
+      lookUpCodeClass: "",
+      tariff: "",
+      invoiceQty: 0,
+      unitQuantity: "NO",
+      customsQty: 0,
+      customsUnit: "KG",
+      price: 0,
+      lineCurrency: "MYR",
+      origin: "",
+      prefOrigin: "",
+      prefSchemeType: "",
+      prefRuleType: "",
+      treatmentCode: "",
+      instructionType: "",
+      instructionNo: "",
+      valuationBasis: "001",
+      tariffRate: "",
+      number: "",
+      bond: false,
+    };
+    setRows(prev => [...prev, newRow]);
+  };
+
+  useImperativeHandle(ref, () => ({
+    addLine,
+  }));
 
   const handleChange = (
     rowIdx: number,
@@ -138,7 +180,15 @@ export function InvoiceLinesTable() {
         </TableHeader>
         <TableBody>
           {rows.map((row, rowIdx) => (
-            <TableRow key={rowIdx}>
+            <TableRow
+              key={rowIdx}
+              onClick={() => setSelected(row.lineNo)}
+              data-state={row.lineNo === selected ? "selected" : undefined}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50",
+                row.lineNo === selected && "bg-primary/20 font-medium"
+              )}
+            >
               {COLUMNS.map((col) => {
                 if (col.key === "bond") {
                   return (
@@ -172,4 +222,4 @@ export function InvoiceLinesTable() {
       </Table>
     </ScrollArea>
   );
-} 
+}); 

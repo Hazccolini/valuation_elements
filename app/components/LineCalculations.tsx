@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useInvoice } from '../contexts/InvoiceContext';
 
 interface FieldRow {
   key: string;
@@ -17,6 +18,7 @@ interface FieldRow {
 
 const CURRENT_INVOICE_FIELDS: FieldRow[] = [
   { key: "total", label: "Total Amount", value: "" },
+  { key: "currency", label: "Currency", value: "" },
   { key: "lines", label: "Lines Amount", value: "" },
   { key: "balance", label: "Balance", value: "" },
 ];
@@ -34,6 +36,7 @@ const LINE_CALC_FIELDS: FieldRow[] = [
 ];
 
 export function LineCalculations() {
+  const { invoiceTotal, currency } = useInvoice();
   const [currentInv, setCurrentInv] = useState<FieldRow[]>(CURRENT_INVOICE_FIELDS);
   const [lineCalcs, setLineCalcs] = useState<FieldRow[]>(LINE_CALC_FIELDS);
 
@@ -72,15 +75,31 @@ export function LineCalculations() {
               {row.label}
             </TableCell>
             <TableCell className="p-1">
-              <input
-                type="number"
-                className="border rounded px-2 py-1 h-8 w-28 bg-background text-right"
-                value={row.value}
-                onChange={(e) => handleChange(setFn, idx, "value", e.target.value)}
-              />
+              {row.key === 'total' ? (
+                <input
+                  type="number"
+                  className="border rounded px-2 py-1 h-8 w-28 bg-background text-right"
+                  value={invoiceTotal.toString()}
+                  readOnly
+                />
+              ) : (
+                <input
+                  type="number"
+                  className="border rounded px-2 py-1 h-8 w-28 bg-background text-right"
+                  value={row.value}
+                  onChange={(e) => handleChange(setFn, idx, "value", e.target.value)}
+                />
+              )}
             </TableCell>
             <TableCell className="p-1">
-              {row.label.includes("Rate") ? (
+              {row.key === 'currency' ? (
+                <input
+                  type="text"
+                  className="border rounded px-2 py-1 h-8 w-16 bg-background uppercase"
+                  value={currency}
+                  readOnly
+                />
+              ) : row.label.includes("Rate") ? (
                 <span>%</span>
               ) : (
                 <input

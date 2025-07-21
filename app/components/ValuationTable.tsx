@@ -1,4 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
+import { useInvoice } from "../contexts/InvoiceContext";
 import { Incoterm } from "@/lib/incotermRules";
 import { ValElement } from "@/lib/incotermRules";
 import {
@@ -149,6 +150,8 @@ const CODE_TO_VAL_ELEMENT: Record<string, ValElement> = {
 
 export const ValuationTable = forwardRef<ValuationTableHandle, ValuationTableProps>(
   function ValuationTable({ incoterm }, ref) {
+    const { setTAndI } = useInvoice();
+
     const buildRow = (code: string): ValRow => {
       const label = ELEMENT_LABELS[code] ?? code;
       const currency = code === "ITL" ? "EUR" : "AUD";
@@ -182,12 +185,24 @@ export const ValuationTable = forwardRef<ValuationTableHandle, ValuationTablePro
     };
 
     const handleChange = (index: number, field: "amount" | "currency" | "distributedBy", value: string) => {
+      let updatedRows: ValRow[] = [];
+      
       setRows((prev) => {
         const clone = [...prev];
         const updated = { ...clone[index], [field]: value } as ValRow;
         clone[index] = recalc(updated);
+        updatedRows = clone;
         return clone;
       });
+      
+      // Update tAndI **after** updating local state to avoid setState during render
+      const onsRow = updatedRows.find(r => r.code === 'ONS');
+      const oftRow = updatedRows.find(r => r.code === 'OFT');
+      
+      const onsValue = onsRow ? (parseFloat(onsRow.amount) || 0) : 0;
+      const oftValue = oftRow ? (parseFloat(oftRow.amount) || 0) : 0;
+      
+      setTAndI(onsValue + oftValue);
     };
 
     const rule = INCOTERM_VALUATION_RULES[incoterm];
